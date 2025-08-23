@@ -1,0 +1,56 @@
+# =========================================================================
+# GENERAL
+# =========================================================================
+
+# Dependencies & Lockfiles
+# This is the most important rule. It ignores all node_modules folders
+# in the root, in /frontend-nextjs, and in /backend-node.
+**/node_modules
+
+# Environment variables
+# Never commit secrets, API keys, or local configuration.
+.env
+.env.local
+.env.*.local
+
+# Log files
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================================================================
+# PROJECT-SPECIFIC
+# =========================================================================
+
+# Next.js (Frontend) build output and cache
+# These files are generated when you run `npm run dev` or `npm run build`
+# in the /frontend-nextjs directory.
+frontend-nextjs/.next/
+frontend-nextjs/out/
+frontend-nextjs/next-env.d.ts
+
+# Node.js / TypeScript (Backend) build output
+# This is the compiled JavaScript that gets generated from your TypeScript code.
+backend-node/dist
+backend-node/build
+*.tsbuildinfo
+
+# =========================================================================
+# COMMON IGNORES
+# =========================================================================
+
+# IDE & Editor directories
+.vscode/
+.idea/
+
+# Test reports
+coverage/
+.nyc_output/
+
+# OS-generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db

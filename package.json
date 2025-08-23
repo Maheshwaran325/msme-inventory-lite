@@ -1,0 +1,19 @@
+{
+  "name": "bpf-challenge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix frontend-nextjs\" \"npm run dev --prefix backend-node\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  },
+  "workspaces": [
+    "frontend-nextjs",
+    "backend-node"
+  ]
+}
