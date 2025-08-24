@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { supabase } from './config/database';
+import authRoutes from './routes/auth';
+import productRoutes from './routes/products';
 
 dotenv.config();
 
@@ -40,8 +42,8 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Test endpoint to verify products table
-app.get('/api/products', async (req, res) => {
+// Public products endpoint (for testing)
+app.get('/api/products/public', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('products')
@@ -63,13 +65,23 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// Authentication routes
+app.use('/api/auth', authRoutes);
+
+// Protected products routes
+app.use('/api/products', productRoutes);
+
 app.get('/api', (req, res) => {
   res.json({ 
     message: 'MSME Inventory Lite API',
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
-      products: '/api/products'
+      products: {
+        public: '/api/products/public',
+        protected: '/api/products'
+      },
+      auth: '/api/auth'
     }
   });
 });
@@ -77,5 +89,7 @@ app.get('/api', (req, res) => {
 app.listen(port, () => {
   console.log(`🚀 Backend server running at http://localhost:${port}`);
   console.log(`📊 Health check: http://localhost:${port}/api/health`);
-  console.log(`📦 Products test: http://localhost:${port}/api/products`);
+  console.log(`📦 Public products: http://localhost:${port}/api/products/public`);
+  console.log(`🔐 Auth routes: http://localhost:${port}/api/auth`);
+  console.log(`🔒 Protected products: http://localhost:${port}/api/products`);
 });

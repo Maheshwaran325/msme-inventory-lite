@@ -1,0 +1,270 @@
+openapi: 3.0.3
+info:
+  title: MSME Inventory Lite API
+  version: 1.0.0
+  description: >
+    API for MSME Inventory Lite — an AI-native inventory management system
+    for corner-store chains. Includes authentication, inventory CRUD,
+    CSV import, KPIs, metrics, and health check.
+
+servers:
+  - url: http://localhost:4000/api
+    description: Local development
+
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  role:
+                    type: string
+        "401":
+          description: Invalid credentials
+
+  /products:
+    get:
+      summary: List products (search/filter)
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: category
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid query
+    post:
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductCreate"
+      responses:
+        "200":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Validation error
+
+  /products/{id}:
+    get:
+      summary: Get single product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+    put:
+      summary: Update product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fields:
+                  $ref: "#/components/schemas/ProductUpdate"
+                version:
+                  type: integer
+              required: [fields, version]
+      responses:
+        "200":
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "403":
+          description: Forbidden (staff editing unit_price)
+        "409":
+          description: Conflict (stale update)
+    delete:
+      summary: Delete product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        "404":
+          description: Not found
+
+  /import/csv:
+    post:
+      summary: Import products via CSV
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Row import statuses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  row_statuses:
+                    type: array
+                    items:
+                      type: string
+                      enum: [created, updated, skipped, error]
+        "400":
+          description: Validation error
+
+  /dashboard/kpis:
+    get:
+      summary: Get dashboard KPIs
+      responses:
+        "200":
+          description: KPI metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_items:
+                    type: integer
+                  stock_value:
+                    type: number
+                    format: float
+                  low_stock:
+                    type: integer
+
+  /metrics:
+    get:
+      summary: System metrics
+      responses:
+        "200":
+          description: Prometheus metrics
+
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: float
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    ProductCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: float
+      required: [name, sku, quantity, unit_price]
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+          format: float
