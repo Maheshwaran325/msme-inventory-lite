@@ -30,8 +30,12 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/login');
+    const result = await logout();
+    if (result.success) {
+      router.push('/login');
+    } else {
+      console.error('Logout failed:', result.message);
+    }
   };
 
   const fetchProducts = async () => {
@@ -40,27 +44,31 @@ export default function ProductsPage() {
       setError(null);
       
       const token = await getSessionToken();
-      console.log('Fetching products with token:', token ? 'Token exists' : 'No token');
       
       const response = await fetch('/api/products', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
-      console.log('Response status:', response.status);
-      
+            
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // If we get a 401, redirect to login
+        if (response.status === 401) {
+          await logout();
+          router.push('/login');
+          return;
+        }
+        
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Products data:', data);
       
       if (data.success) {
         setProducts(data.data || []);
       } else {
-        setError(data.message || 'Failed to fetch products');
+        setError(data.error?.message || 'Failed to fetch products');
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -99,7 +107,7 @@ export default function ProductsPage() {
           fetchProducts(); // Refresh the list
         } else {
           const data = await response.json();
-          alert(data.message || 'Failed to delete product');
+          alert(data.error?.message || 'Failed to delete product');
         }
       } catch (error) {
         console.error('Error deleting product:', error);
@@ -136,7 +144,7 @@ export default function ProductsPage() {
               <div className="ml-3 relative">
                 <div className="flex items-center space-x-4">
                   <span className="text-sm font-medium text-gray-700">
-                    {user?.email}
+                    {user?.email} ({user?.role})
                   </span>
                   <button
                     onClick={handleLogout}
@@ -184,6 +192,7 @@ export default function ProductsPage() {
                       <p className="text-gray-700"><span className="font-medium">Category:</span> {product.category}</p>
                       <p className="text-gray-700"><span className="font-medium">Quantity:</span> {product.quantity}</p>
                       <p className="text-gray-700"><span className="font-medium">Price:</span> ${product.unit_price.toFixed(2)}</p>
+                      <p className="text-gray-500 text-xs"><span className="font-medium">Version:</span> {product.version}</p>
                     </div>
                     <div className="flex justify-end space-x-2 mt-4">
                       <Button variant="secondary" onClick={() => handleEditProduct(product)}>Edit</Button>

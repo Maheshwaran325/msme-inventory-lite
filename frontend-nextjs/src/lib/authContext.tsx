@@ -149,23 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Create profile in the database
+        // Update the profile that was automatically created by the trigger
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: data.user.email,
+          .update({
             role: role
-          });
+          })
+          .eq('id', data.user.id);
 
         if (profileError) {
-          console.error('Profile creation error:', profileError);
-          // Try to sign out since we couldn't create the profile
+          console.error('Profile update error:', profileError);
+          // Try to sign out since we couldn't update the profile
           await supabase.auth.signOut();
-          return { success: false, message: 'Error creating user profile' };
+          return { success: false, message: 'Error updating user profile' };
         }
 
-        // Fetch the created profile
+        // Fetch the updated profile
         const { data: profile, error: fetchError } = await supabase
           .from('profiles')
           .select('id, email, role')
@@ -196,8 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: error.message };
       }
 
-      setUser(null);
       // Supabase will automatically clear the session from localStorage
+      // The onAuthStateChange listener will handle setting user to null
       return { success: true, message: 'Logout successful' };
     } catch (error) {
       console.error('Logout error:', error);

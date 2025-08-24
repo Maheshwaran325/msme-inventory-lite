@@ -8,19 +8,30 @@ async function handler(req: NextRequest) {
     const url = `${backendBaseUrl}${path}${search}`;
 
     try {
+        // Get the request body for non-GET requests
+        let body = null;
+        if (req.method !== 'GET' && req.method !== 'DELETE') {
+            body = await req.text();
+        }
+
         const response = await fetch(url, {
             method: req.method,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': req.headers.get('Authorization') || '',
             },
-            body: req.method !== 'GET' && req.method !== 'DELETE' ? await req.text() : null,
+            body: body,
         });
 
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
+        console.error('API proxy error:', error);
+        return NextResponse.json({ 
+            success: false, 
+            message: 'Internal server error',
+            error: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
     }
 }
 

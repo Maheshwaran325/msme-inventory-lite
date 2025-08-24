@@ -10,8 +10,12 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/login');
+    const result = await logout();
+    if (result.success) {
+      router.push('/login');
+    } else {
+      console.error('Logout failed:', result.message);
+    }
   };
 
   return (
