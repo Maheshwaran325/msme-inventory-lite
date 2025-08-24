@@ -7,6 +7,9 @@ import productRoutes from './routes/products';
 
 dotenv.config();
 
+console.log("Supabase URL:", process.env.SUPABASE_URL);
+console.log("Supabase Key length:", process.env.SUPABASE_SERVICE_KEY?.length);
+
 const app = express();
 const port = process.env.PORT || 4000;
 
@@ -19,28 +22,32 @@ app.use(express.json());
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    // Test database connection
-    const { data, error } = await supabase
+    const { count, error } = await supabase
       .from('products')
-      .select('count(*)')
-      .limit(1);
+      .select('*', { count: 'exact', head: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase health error:", error);
+      throw error;
+    }
 
-    res.status(200).json({ 
-      status: 'ok', 
+    res.status(200).json({
+      status: 'ok',
       message: 'MSME Inventory API is healthy',
       database: 'connected',
+      rows: count,
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
+  } catch (err) {
+    console.error("Health check failed:", err);
     res.status(500).json({
       status: 'error',
       message: 'Database connection failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: err instanceof Error ? err.message : JSON.stringify(err)
     });
   }
 });
+
 
 // Public products endpoint (for testing)
 app.get('/api/products/public', async (req, res) => {

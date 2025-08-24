@@ -45,6 +45,8 @@ backend-node/build
 # IDE & Editor directories
 .vscode/
 .idea/
+.cursor/
+.github/
 
 # Test reports
 coverage/
