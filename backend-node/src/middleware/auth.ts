@@ -2,6 +2,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../config/database';
 
+// Tiny in-memory cache for auth profile lookups to reduce duplicate DB calls
+const authProfileCache = new Map<string, { id: string; email: string; role: string; expiresAt: number }>();
+const CACHE_TTL_MS = 15_000; // 15s short TTL to avoid staleness while improving latency
+
 declare global {
   namespace Express {
     interface Request {
@@ -35,6 +39,13 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       });
     }
 
+    // Try cache first
+    const cached = authProfileCache.get(user.id);
+    if (cached && cached.expiresAt > Date.now()) {
+      req.user = { id: cached.id, email: cached.email, role: cached.role };
+      return next();
+    }
+
     // Fetch the user's profile to get their role
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -54,6 +65,13 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       email: profile.email,
       role: profile.role
     };
+
+    authProfileCache.set(profile.id, {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    });
 
     next();
   } catch (error) {

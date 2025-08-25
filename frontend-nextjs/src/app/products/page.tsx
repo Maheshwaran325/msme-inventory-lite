@@ -29,6 +29,27 @@ export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+
+  // Debounced filters to avoid firing requests on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedCategory, setDebouncedCategory] = useState<string>('All');
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setDebouncedCategory(selectedCategory);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery, selectedCategory]);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(12);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+
   const handleLogout = async () => {
     const result = await logout();
     if (result.success) {
@@ -45,7 +66,13 @@ export default function ProductsPage() {
       
       const token = await getSessionToken();
       
-      const response = await fetch('/api/products', {
+      const params = new URLSearchParams();
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
+      if (debouncedCategory && debouncedCategory !== 'All') params.set('category', debouncedCategory);
+      params.set('limit', String(pageSize));
+      params.set('offset', String((page - 1) * pageSize));
+
+      const response = await fetch(`/api/products?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -67,6 +94,7 @@ export default function ProductsPage() {
       
       if (data.success) {
         setProducts(data.data || []);
+        setTotalCount(typeof data.count === 'number' ? data.count : null);
       } else {
         setError(data.error?.message || 'Failed to fetch products');
       }
@@ -79,8 +107,14 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
+    // Reset to first page when filters change
+    setPage(1);
+  }, [debouncedSearch, debouncedCategory]);
+
+  useEffect(() => {
     fetchProducts();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, debouncedCategory, page]);
 
   const handleAddProduct = () => {
     setSelectedProduct(null);
@@ -114,6 +148,23 @@ export default function ProductsPage() {
         alert('An error occurred while deleting the product');
       }
     }
+  };
+
+  // Derived: unique categories (with 'All' at start)
+  const categories: string[] = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort()];
+
+  // Exact name match (case-insensitive) + category filter
+  const filteredProducts = products.filter(p => {
+    const nameMatches = !searchQuery.trim()
+      ? true
+      : p.name.trim().toLowerCase() === searchQuery.trim().toLowerCase();
+    const categoryMatches = selectedCategory === 'All' ? true : p.category === selectedCategory;
+    return nameMatches && categoryMatches;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('All');
   };
 
   return (
@@ -176,6 +227,46 @@ export default function ProductsPage() {
             )}
           </div>
 
+          {/* Search + Category Filters */}
+          <div className="bg-white border rounded p-4 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="w-full md:w-1/2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search by name (exact)</label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Type exact product name"
+                  className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-gray-700"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" onClick={clearFilters}>Clear</Button>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="text-sm text-gray-700 mb-2">Filter by category</div>
+              <div className="flex flex-wrap gap-2">
+                {categories.map(cat => {
+                  const active = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3 py-1.5 rounded-full text-sm border transition
+                        ${active 
+                          ? 'bg-blue-600 text-white border-blue-600' 
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
               {error}
@@ -188,30 +279,57 @@ export default function ProductsPage() {
               <span className="ml-2 text-gray-600">Loading products...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {products.map((product) => (
-                <Card key={product.id} className="bg-white border-gray-200 hover:shadow-md transition-shadow duration-200">
-                  <CardHeader>
-                    <CardTitle className="text-gray-900">{product.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <p className="text-gray-700"><span className="font-medium">SKU:</span> {product.sku}</p>
-                      <p className="text-gray-700"><span className="font-medium">Category:</span> {product.category}</p>
-                      <p className="text-gray-700"><span className="font-medium">Quantity:</span> {product.quantity}</p>
-                      <p className="text-gray-700"><span className="font-medium">Price:</span> ${product.unit_price.toFixed(2)}</p>
-                      <p className="text-gray-500 text-xs"><span className="font-medium">Version:</span> {product.version}</p>
-                    </div>
-                    <div className="flex justify-end space-x-2 mt-4">
-                      <Button variant="secondary" onClick={() => handleEditProduct(product)}>Edit</Button>
-                      {user?.role === 'owner' && (
-                        <Button variant="danger" onClick={() => handleDeleteProduct(product.id)}>Delete</Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <>
+              <div className="text-sm text-gray-600 mb-3">
+                Showing {products.length} of {totalCount ?? products.length} products
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProducts.map((product) => (
+                  <Card key={product.id} className="bg-white border-gray-200 hover:shadow-md transition-shadow duration-200">
+                    <CardHeader>
+                      <CardTitle className="text-gray-900">{product.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <p className="text-gray-700"><span className="font-medium">SKU:</span> {product.sku}</p>
+                        <p className="text-gray-700"><span className="font-medium">Category:</span> {product.category}</p>
+                        <p className="text-gray-700"><span className="font-medium">Quantity:</span> {product.quantity}</p>
+                        <p className="text-gray-700"><span className="font-medium">Price:</span> ${product.unit_price.toFixed(2)}</p>
+                        <p className="text-gray-500 text-xs"><span className="font-medium">Version:</span> {product.version}</p>
+                      </div>
+                      <div className="flex justify-end space-x-2 mt-4">
+                        <Button variant="secondary" onClick={() => handleEditProduct(product)}>Edit</Button>
+                        {user?.role === 'owner' && (
+                          <Button variant="danger" onClick={() => handleDeleteProduct(product.id)}>Delete</Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {/* Pagination controls */}
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-gray-600">
+                  Page {page}
+                </div>
+                <div className="space-x-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1 || loading}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={loading || (totalCount !== null && page * pageSize >= totalCount)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </main>

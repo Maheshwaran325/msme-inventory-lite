@@ -10,16 +10,13 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Only redirect if we're done loading and there's no user
-    if (!loading) {
-      if (!user) {
-        // Redirect to login if not authenticated
-        router.push('/login');
-      } else {
-        // User is authenticated, stop checking
-        setIsChecking(false);
-      }
+    if (loading) return;
+    if (!user) {
+      router.push('/login');
+      setIsChecking(false);
+      return;
     }
+    setIsChecking(false);
   }, [user, loading, router]);
 
   // Show loading spinner while checking auth state
@@ -32,5 +29,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   // Render children if user is authenticated
-  return user ? <>{children}</> : null;
+  if (!user) return null;
+  return <>{children}</>;
 }

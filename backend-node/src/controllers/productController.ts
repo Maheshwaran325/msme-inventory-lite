@@ -4,9 +4,29 @@ import { supabase } from '../config/database';
 
 export const getProducts = async (req: Request, res: Response) => {
     try {
-        const { data, error } = await supabase.from('products').select('*');
+        const { search, category } = req.query as { search?: string; category?: string };
+        const limitParam = parseInt((req.query.limit as string) || '100', 10);
+        const offsetParam = parseInt((req.query.offset as string) || '0', 10);
+
+        let query = supabase
+            .from('products')
+            .select('id, name, sku, category, quantity, unit_price, version', { count: 'estimated' })
+            .order('name', { ascending: true })
+            .limit(Math.min(Math.max(limitParam, 1), 500))
+            .range(offsetParam, offsetParam + Math.min(Math.max(limitParam, 1), 500) - 1);
+
+        if (search && search.trim()) {
+            // Exact name match (case-insensitive) to mirror UI behavior
+            query = query.ilike('name', search.trim());
+        }
+
+        if (category && category !== 'All') {
+            query = query.eq('category', category);
+        }
+
+        const { data, error, count } = await query;
         if (error) throw error;
-        res.json({ success: true, data });
+        res.json({ success: true, data, count });
     } catch (error) {
         res.status(500).json({ 
             error: { 
@@ -160,47 +180,49 @@ export const deleteProduct = async (req: Request, res: Response) => {
 
 export const getKPIs = async (req: Request, res: Response) => {
     try {
-        // Get total items (distinct products)
-        const { count: totalItems, error: countError } = await supabase
+        const totalItemsPromise = supabase
             .from('products')
             .select('*', { count: 'exact', head: true });
 
-        if (countError) throw countError;
-
-        // Get total stock value
-        const { data: stockData, error: stockError } = await supabase
+        const stockDataPromise = supabase
             .from('products')
             .select('quantity, unit_price');
 
-        if (stockError) throw stockError;
-
-        // Calculate total stock value
-        const totalStockValue = stockData!.reduce((sum, product) => {
-            return sum + (product.quantity * parseFloat(product.unit_price as string));
-        }, 0);
-
-        // Get low stock count
-        const { count: lowStockCount, error: lowStockError } = await supabase
+        const lowStockCountPromise = supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
             .lt('quantity', 5);
 
-        if (lowStockError) throw lowStockError;
+        const [totalItemsRes, stockDataRes, lowStockRes] = await Promise.all([
+            totalItemsPromise,
+            stockDataPromise,
+            lowStockCountPromise,
+        ]);
+
+        if (totalItemsRes.error) throw totalItemsRes.error;
+        if (stockDataRes.error) throw stockDataRes.error;
+        if (lowStockRes.error) throw lowStockRes.error;
+
+        const totalItems = totalItemsRes.count || 0;
+        const totalStockValue = (stockDataRes.data || []).reduce((sum: number, product: any) => {
+            return sum + (Number(product.quantity) * parseFloat(product.unit_price as string));
+        }, 0);
+        const lowStockCount = lowStockRes.count || 0;
 
         res.json({
             success: true,
             data: {
-                totalItems: totalItems || 0,
-                totalStockValue: totalStockValue,
-                lowStockCount: lowStockCount || 0
-            }
+                totalItems,
+                totalStockValue,
+                lowStockCount,
+            },
         });
     } catch (error) {
         res.status(500).json({
             error: {
                 code: 'INTERNAL_ERROR',
-                message: (error as Error).message
-            }
+                message: (error as Error).message,
+            },
         });
     }
 };
