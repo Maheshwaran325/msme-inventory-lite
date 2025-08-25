@@ -137,8 +137,16 @@ export default function ProductsPage() {
                   className="text-gray-900 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium bg-gray-100"
                 >
                   Products
-                </Link>
-              </div>
+                  </Link>
+                  {user?.role === 'owner' && (
+                    <Link
+                      href="/import"
+                      className="text-gray-900 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
+                    >
+                      Import CSV
+                    </Link>
+                  )}
+                </div>
             </div>
             <div className="flex items-center">
               <div className="ml-3 relative">

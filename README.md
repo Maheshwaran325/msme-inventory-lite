@@ -98,7 +98,9 @@ All API errors follow a consistent format:
   - Each edit is queued if offline, replayed when back online  
   - Light enough for this prototype  
   - **Limitations:** small storage (~5MB), synchronous API, may not handle very large queues  
-  - In production → would switch to **IndexedDB (with Dexie.js)** for async, larger storage, and persistence across sessions  
+  - In production → would switch to **IndexedDB (with Dexie.js)** for async, larger storage, and persistence across sessions 
+
+
 
 ---
 
