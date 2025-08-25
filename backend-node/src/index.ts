@@ -6,6 +6,7 @@ import { supabase } from './config/database';
 import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
 import importRoutes from './routes/import';
+import dashboardRoutes from './routes/dashboard';
 
 dotenv.config();
 
@@ -110,6 +111,9 @@ app.use('/api/products', productRoutes);
 
 // Protected import routes
 app.use('/api/import', importRoutes);
+
+// Protected dashboard routes
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ 

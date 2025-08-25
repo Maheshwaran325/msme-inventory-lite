@@ -17,7 +17,6 @@ const upload = multer({
         const allowedMimeTypes = new Set([
             'text/csv',
             'application/csv',
-            'text/plain',
             'application/vnd.ms-excel'
         ]);
         const ext = path.extname(file.originalname || '').toLowerCase();

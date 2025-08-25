@@ -157,3 +157,50 @@ export const deleteProduct = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const getKPIs = async (req: Request, res: Response) => {
+    try {
+        // Get total items (distinct products)
+        const { count: totalItems, error: countError } = await supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true });
+
+        if (countError) throw countError;
+
+        // Get total stock value
+        const { data: stockData, error: stockError } = await supabase
+            .from('products')
+            .select('quantity, unit_price');
+
+        if (stockError) throw stockError;
+
+        // Calculate total stock value
+        const totalStockValue = stockData!.reduce((sum, product) => {
+            return sum + (product.quantity * parseFloat(product.unit_price as string));
+        }, 0);
+
+        // Get low stock count
+        const { count: lowStockCount, error: lowStockError } = await supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .lt('quantity', 5);
+
+        if (lowStockError) throw lowStockError;
+
+        res.json({
+            success: true,
+            data: {
+                totalItems: totalItems || 0,
+                totalStockValue: totalStockValue,
+                lowStockCount: lowStockCount || 0
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: {
+                code: 'INTERNAL_ERROR',
+                message: (error as Error).message
+            }
+        });
+    }
+};

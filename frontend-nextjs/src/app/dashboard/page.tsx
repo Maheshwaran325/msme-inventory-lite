@@ -4,10 +4,16 @@ import { useAuth } from '../../lib/authContext';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getSessionToken } from '../../lib/supabaseClient';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
+
+  const [kpis, setKpis] = useState<{ totalItems: number; totalStockValue: number; lowStockCount: number } | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
 
   const handleLogout = async () => {
     const result = await logout();
@@ -17,6 +23,46 @@ export default function DashboardPage() {
       console.error('Logout failed:', result.message);
     }
   };
+
+  useEffect(() => {
+    const fetchKpis = async () => {
+      try {
+        setKpiLoading(true);
+        setKpiError(null);
+        const token = await getSessionToken();
+        const res = await fetch('/api/dashboard', {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+        });
+        if (!res.ok) {
+          if (res.status === 401) {
+            await logout();
+            router.push('/login');
+            return;
+          }
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `HTTP error: ${res.status}`);
+        }
+        const data = await res.json();
+        if (data?.success !== false && data?.data) {
+          setKpis({
+            totalItems: data.data.totalItems ?? 0,
+            totalStockValue: data.data.totalStockValue ?? 0,
+            lowStockCount: data.data.lowStockCount ?? 0,
+          });
+        } else {
+          setKpiError(data?.error?.message || 'Failed to load KPIs');
+        }
+      } catch (e) {
+        setKpiError(e instanceof Error ? e.message : 'Failed to load KPIs');
+      } finally {
+        setKpiLoading(false);
+      }
+    };
+
+    fetchKpis();
+  }, [logout, router]);
 
   return (
     <ProtectedRoute>
@@ -70,16 +116,44 @@ export default function DashboardPage() {
 
         <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
-            <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 p-4 text-gray-900">
-              <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
-              <p>Welcome to your inventory management dashboard!</p>
-              <div className="mt-4">
-                <h3 className="text-lg font-medium">User Information</h3>
-                <p>ID: {user?.id}</p>
-                <p>Email: {user?.email}</p>
-                <p>Role: {user?.role}</p>
-              </div>
+            {/* KPIs */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-4 text-gray-900">Key Metrics</h2>
+              {kpiError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+                  {kpiError}
+                </div>
+              )}
+              {kpiLoading ? (
+                <div className="flex items-center text-gray-700">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900 mr-2"></div>
+                  Loading KPIs...
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white border rounded p-4">
+                    <div className="text-sm text-gray-600">Total Items</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {kpis?.totalItems ?? 0}
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded p-4">
+                    <div className="text-sm text-gray-600">Total Stock Value</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      ${Number(kpis?.totalStockValue ?? 0).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="bg-white border rounded p-4">
+                    <div className="text-sm text-gray-600">Low Stock Count</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {kpis?.lowStockCount ?? 0}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
+           
           </div>
         </main>
       </div>
