@@ -34,6 +34,7 @@ export default function ImportPage() {
   const [summary, setSummary] = useState<{ total_rows: number; created: number; updated: number; errors: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const handleLogout = async () => {
     const result = await logout();
@@ -58,57 +59,88 @@ export default function ImportPage() {
     const csvFile = inputFile ?? file;
     if (!csvFile) return;
     setUploading(true);
+    setUploadProgress(0);
     setError(null);
     setResults(null);
     setSummary(null);
 
     try {
       const token = await getSessionToken();
-
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+      
+      // Use XMLHttpRequest for progress tracking
+      const xhr = new XMLHttpRequest();
+      
+      // Set up and send request
       const formData = new FormData();
       formData.append('file', csvFile);
-
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-      const response = await fetch(`${apiBase}/import/csv`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: formData,
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        // If we get a 401, redirect to login
-        if (response.status === 401) {
-          await logout();
-          router.push('/login');
-          return;
-        }
-        
-        // Try to parse error response as JSON
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error?.message || errorMessage;
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (jsonError) {
-          // If JSON parsing fails, check content type
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('text/html')) {
-            errorMessage = 'Server error - API may be down or unreachable';
-          } else {
-            // If JSON parsing fails, use the status text
-            errorMessage = response.statusText || errorMessage;
-          }
-        }
-        throw new Error(errorMessage);
+      
+      xhr.open('POST', `${apiBase}/import/csv`);
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }
       
-      const data = await response.json();
+      // Track upload progress (must be added after open() but before send())
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          console.log(`Upload progress: ${percentComplete}% (${event.loaded}/${event.total})`);
+          setUploadProgress(percentComplete);
+        } else {
+          console.log('Upload progress: length not computable');
+        }
+      });
+      
+      // Handle response
+      const responsePromise = new Promise((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data);
+            } catch (e) {
+              reject(new Error('Invalid JSON response'));
+            }
+          } else if (xhr.status === 401) {
+            // Handle 401 Unauthorized
+            logout().then(() => {
+              router.push('/login');
+            });
+            reject(new Error('Unauthorized'));
+          } else {
+            // Try to parse error response as JSON
+            let errorMessage = `HTTP error! status: ${xhr.status}`;
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              errorMessage = errorData.error?.message || errorMessage;
+            } catch (jsonError) {
+              // If JSON parsing fails, check content type
+              const contentType = xhr.getResponseHeader('content-type');
+              if (contentType && contentType.includes('text/html')) {
+                errorMessage = 'Server error - API may be down or unreachable';
+              } else {
+                // If JSON parsing fails, use the status text
+                errorMessage = xhr.statusText || errorMessage;
+              }
+            }
+            reject(new Error(errorMessage));
+          }
+        };
+        
+        xhr.onerror = () => {
+          reject(new Error('Network error'));
+        };
+        
+        xhr.onabort = () => {
+          reject(new Error('Upload cancelled'));
+        };
+      });
+      
+      xhr.send(formData);
+      
+      // Wait for response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await responsePromise;
       
       if (data.success) {
         setResults(data.results || []);
@@ -117,15 +149,14 @@ export default function ImportPage() {
         setError(data.error?.message || 'Failed to import CSV');
       }
     } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === 'AbortError') {
-        setError('Upload timed out. Please try again or check the server.');
-      } else if (e instanceof Error) {
+      if (e instanceof Error) {
         setError(e.message || 'Upload failed');
       } else {
         setError('Upload failed');
       }
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -185,7 +216,7 @@ export default function ImportPage() {
   }
 
   // If user is not authenticated or not an owner, don't render the page content
-  if (!user || user.role !== 'owner') {
+  if (!user ) {
     return null;
   }
 
@@ -274,7 +305,7 @@ export default function ImportPage() {
                   onClick={() => handleUpload()}
                   loading={uploading}
                 >
-                  {uploading ? 'Uploading...' : 'Upload CSV'}
+                  {uploading ? `Uploading... ${uploadProgress}%` : 'Upload CSV'}
                 </Button>
 
                 {failedRows.length > 0 && (
@@ -288,6 +319,18 @@ export default function ImportPage() {
                   </>
                 )}
               </div>
+              
+              {uploading && (
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1 text-right">{uploadProgress}%</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -316,41 +359,44 @@ export default function ImportPage() {
           )}
 
 {results && results.length > 0 && (
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Import Results</h2>
-              <div className="overflow-x-auto text-gray-900">
-                <table className="min-w-full text-left text-sm border-collapse">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">Row</th>
-                      <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">SKU</th>
-                      <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.map((r, idx) => (
-                      <tr key={idx} className="odd:bg-white even:bg-gray-50 hover:bg-gray-100">
-                        <td className="p-3 border border-gray-300 font-medium">{r.row}</td>
-                        <td className="p-3 border border-gray-300">{r.sku}</td>
-                        <td className="p-3 border border-gray-300">
-                          <span className={
-                            r.status === 'error' ? 'text-red-600 font-semibold' :
-                            r.status === 'updated' ? 'text-amber-700 font-semibold' :
-                            r.status === 'created' ? 'text-green-700 font-semibold' :
-                            'text-gray-700 font-semibold'
-                          }>
-                            {r.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+  <div className="bg-white shadow rounded-lg p-6">
+    <h2 className="text-lg font-medium text-gray-900 mb-4">Import Results</h2>
+    <div className="overflow-x-auto text-gray-900">
+      <table className="min-w-full text-left text-sm border-collapse">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">Row</th>
+            <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">SKU</th>
+            <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">Status</th>
+            <th className="p-3 border border-gray-300 bg-gray-100 font-semibold">Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {results.map((r, idx) => (
+            <tr key={idx} className="odd:bg-white even:bg-gray-50 hover:bg-gray-100">
+              <td className="p-3 border border-gray-300 font-medium">{r.row}</td>
+              <td className="p-3 border border-gray-300">{r.sku}</td>
+              <td className="p-3 border border-gray-300">
+                <span className={
+                  r.status === 'error' ? 'text-red-600 font-semibold' :
+                  r.status === 'updated' ? 'text-amber-700 font-semibold' :
+                  r.status === 'created' ? 'text-green-700 font-semibold' :
+                  'text-gray-700 font-semibold'
+                }>
+                  {r.status}
+                </span>
+              </td>
+              <td className="p-3 border border-gray-300 max-w-md break-words">{r.message || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
         </div>
       </main>
     </div>
   );
 }
+

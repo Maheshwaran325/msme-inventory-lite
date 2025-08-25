@@ -1,0 +1,5 @@
+name,sku,category,quantity,unit_price
+Coca,Cola,"500ml,COKE-500,Beverages,60,2.80"
+White,"Bread,BREAD-WHITE,Bakery,30,2.10"
+Laptop,Sleeve,13,"inch,LAPTOP-13,Electronics,12,15.99"
+Fantasy,Novel,Vol,"1,BOOK-FANTASY,Books,20,9.99"

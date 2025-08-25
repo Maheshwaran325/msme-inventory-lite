@@ -38,6 +38,17 @@ export const importCSV = async (req: Request, res: Response) => {
             });
         }
 
+        // Get user role
+        const userRole = req.user?.role;
+        if (!userRole) {
+            return res.status(401).json({
+                error: {
+                    code: 'AUTH_ERROR',
+                    message: 'User role not found'
+                }
+            });
+        }
+
         // Parse CSV content
         const csvContent = req.file.buffer.toString('utf-8');
         const lines = csvContent.split('\n').filter(line => line.trim());
@@ -96,6 +107,7 @@ export const importCSV = async (req: Request, res: Response) => {
         // Process data rows
         const results: ImportResult[] = [];
         const dataRows = lines.slice(1);
+        const processedSkus: Set<string> = new Set(); // Track SKUs processed in this file
 
         for (let i = 0; i < dataRows.length; i++) {
             const rowNumber = i + 2; // +2 because we start from line 2 (after header)
@@ -122,20 +134,40 @@ export const importCSV = async (req: Request, res: Response) => {
                     continue;
                 }
 
+                // Check for duplicates in the same file
+                const sku = csvRow.sku.trim();
+                if (processedSkus.has(sku)) {
+                    results.push({
+                        row: rowNumber,
+                        sku: sku,
+                        status: 'skipped',
+                        message: 'Duplicate in same file'
+                    });
+                    continue;
+                }
+                processedSkus.add(sku);
+
                 // Check if product exists by SKU
                 const { data: existingProduct } = await supabase
                     .from('products')
                     .select('id, version, name, category, quantity, unit_price')
-                    .eq('sku', csvRow.sku.trim())
+                    .eq('sku', sku)
                     .single();
 
                 const productData = {
                     name: csvRow.name.trim(),
-                    sku: csvRow.sku.trim(),
+                    sku: sku,
                     category: csvRow.category.trim(),
                     quantity: parseInt(csvRow.quantity),
                     unit_price: parseFloat(csvRow.unit_price)
                 };
+
+                // Check if this is a unit_price change
+                const isUnitPriceChange = existingProduct &&
+                    parseFloat(csvRow.unit_price) !== existingProduct.unit_price;
+
+                // For staff users, skip unit_price changes but allow other updates
+                const isStaffSkippingUnitPrice = userRole === 'staff' && isUnitPriceChange;
 
                 let result: ImportResult;
 
@@ -145,8 +177,8 @@ export const importCSV = async (req: Request, res: Response) => {
                         name: productData.name,
                         category: productData.category,
                         quantity: productData.quantity,
-                        unit_price: productData.unit_price,
-                        version: existingProduct.version + 1
+                        version: existingProduct.version + 1,
+                        ...( (!isUnitPriceChange || userRole === 'owner') && { unit_price: productData.unit_price } )
                     };
 
                     const { data: updatedProduct, error: updateError } = await supabase
@@ -159,38 +191,78 @@ export const importCSV = async (req: Request, res: Response) => {
                     if (updateError) {
                         result = {
                             row: rowNumber,
-                            sku: csvRow.sku,
+                            sku: sku,
                             status: 'error',
                             message: `Update failed: ${updateError.message}`
                         };
                     } else {
+                        // Create detailed message about what was updated
+                        const changes: string[] = [];
+                        if (productData.name !== existingProduct.name) {
+                            changes.push(`name: "${existingProduct.name}" → "${productData.name}"`);
+                        }
+                        if (productData.category !== existingProduct.category) {
+                            changes.push(`category: "${existingProduct.category}" → "${productData.category}"`);
+                        }
+                        if (productData.quantity !== existingProduct.quantity) {
+                            changes.push(`quantity: ${existingProduct.quantity} → ${productData.quantity}`);
+                        }
+                        if (isUnitPriceChange && userRole === 'owner') {
+                            changes.push(`unit_price: ${existingProduct.unit_price} → ${productData.unit_price}`);
+                        }
+                        
+                        // Create message based on user role and changes
+                        let message = '';
+                        if (changes.length > 0) {
+                            message = `Updated: ${changes.join(', ')}`;
+                            if (isStaffSkippingUnitPrice) {
+                                message += '; unit_price skipped (staff restriction)';
+                            }
+                        } else {
+                            message = isStaffSkippingUnitPrice ? 'unit_price skipped (staff restriction)' : 'No changes detected';
+                        }
+                        
                         result = {
                             row: rowNumber,
-                            sku: csvRow.sku,
+                            sku: sku,
                             status: 'updated',
+                            message: message,
                             data: updatedProduct
                         };
                     }
                 } else {
                     // Create new product
+                    // For staff users, exclude unit_price from creation if it's being provided
+                    const createData = isStaffSkippingUnitPrice ? {
+                        name: productData.name,
+                        sku: productData.sku,
+                        category: productData.category,
+                        quantity: productData.quantity,
+                        unit_price: 0 // Default to 0 for staff users
+                    } : productData;
+
                     const { data: newProduct, error: insertError } = await supabase
                         .from('products')
-                        .insert([productData])
+                        .insert([createData])
                         .select()
                         .single();
 
                     if (insertError) {
                         result = {
                             row: rowNumber,
-                            sku: csvRow.sku,
+                            sku: sku,
                             status: 'error',
                             message: `Insert failed: ${insertError.message}`
                         };
                     } else {
+                        const message = isStaffSkippingUnitPrice ?
+                            'Product created successfully (unit_price skipped due to staff restriction)' :
+                            'Product created successfully';
                         result = {
                             row: rowNumber,
-                            sku: csvRow.sku,
+                            sku: sku,
                             status: 'created',
+                            message: message,
                             data: newProduct
                         };
                     }

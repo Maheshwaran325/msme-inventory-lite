@@ -1,0 +1,51 @@
+name,sku,category,quantity,unit_price
+Coca Cola 500ml,COKE-500,Beverages,50,2.5
+White Bread,BREAD-WHITE,Bakery,25,1.75
+Milk 1L,MILK-1L,Dairy,30,3.25
+Bananas (per kg),BANANA-KG,Fruits,15,2.99
+Chicken Breast 500g,CHICKEN-500,Meat,20,8.99
+Rice 1kg,RICE-1KG,Grains,40,4.5
+Tomatoes 500g,TOMATO-500,Vegetables,35,3.75
+Orange Juice 1L,ORANGE-1L,Beverages,18,4.25
+Cheese 200g,CHEESE-200,Dairy,22,5.5
+Potatoes 1kg,POTATO-1KG,Vegetables,28,2.25
+Ground Coffee 250g,COFFEE-250,Beverages,30,6.99
+Yogurt 500g,YOGURT-500,Dairy,20,2.75
+Apples (per kg),APPLE-KG,Fruits,22,3.49
+Salmon Fillet 300g,SALMON-300,Meat,12,12.99
+Pasta 500g,PASTA-500,Grains,38,1.99
+Cucumbers (each),CUCUMBER-EA,Vegetables,20,1.2
+Sparkling Water 1.5L,SPARKLE-1.5L,Beverages,25,1.8
+Butter 250g,BUTTER-250,Dairy,15,4.1
+Grapes 500g,GRAPE-500,Fruits,10,5.75
+Beef Mince 400g,BEEF-400,Meat,18,7.5
+Eggs (dozen),EGGS-DZ,Dairy,25,3.99
+Onions 1kg,ONION-1KG,Vegetables,30,1.5
+Cola Zero 500ml,COKEZ-500,Beverages,45,2.4
+Whole Wheat Bread,BREAD-WW,Bakery,20,2.1
+Cheddar Cheese 250g,CHEDDAR-250,Dairy,18,6.2
+Pears (per kg),PEAR-KG,Fruits,12,3.15
+Pork Chops 600g,PORK-600,Meat,10,9.5
+Quinoa 500g,QUINOA-500,Grains,20,5.8
+Bell Peppers (each),BELLPEP-EA,Vegetables,25,1.9
+Apple Juice 1L,APPLEJ-1L,Beverages,15,3.8
+Feta Cheese 150g,FETA-150,Dairy,10,4.99
+Mangoes (each),MANGO-EA,Fruits,8,2.7
+Turkey Breast 400g,TURKEY-400,Meat,10,11.2
+Oats 500g,OATS-500,Grains,30,2.6
+Zucchini 500g,ZUCCH-500,Vegetables,20,2.1
+Mineral Water 2L,MINERAL-2L,Beverages,35,1
+Greek Yogurt 400g,GYOGURT-400,Dairy,15,3.4
+Strawberries 250g,STRAW-250,Fruits,10,4.5
+Lamb Chops 500g,LAMB-500,Meat,8,14.99
+Couscous 300g,COUSC-300,Grains,15,2.2
+Spinach 200g,SPINACH-200,Vegetables,18,2
+Diet Soda Can,DIETSODA-C,Beverages,60,1.2
+Sour Cream 200g,SOURCRM-200,Dairy,12,2.9
+Blueberries 125g,BLUEB-125,Fruits,7,3.99
+Sausages 300g,SAUSAGE-300,Meat,15,6.75
+Lentils 500g,LENTIL-500,Grains,25,3.1
+Broccoli 500g,BROCC-500,Vegetables,22,2.8
+Espresso Capsules,ESPR-CAP,Beverages,40,7.5
+Ricotta Cheese 250g,RICOTTA-250,Dairy,55,3.6
+Avocados (each),AVO-EA,Fruits,10,2.2

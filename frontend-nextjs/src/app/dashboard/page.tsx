@@ -41,14 +41,12 @@ export default function DashboardPage() {
                   >
                     Products
                     </Link>
-                  {user?.role === 'owner' && (
                     <Link
                       href="/import"
                       className="text-gray-900 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
                     >
                       Import CSV
                     </Link>
-                  )}
                 </div>
               </div>
               <div className="flex items-center">
