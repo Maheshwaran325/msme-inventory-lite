@@ -7,11 +7,9 @@ import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
 import importRoutes from './routes/import';
 import dashboardRoutes from './routes/dashboard';
+import metricsRoutes from './routes/metrics';
 
 dotenv.config();
-
-console.log("Supabase URL:", process.env.SUPABASE_URL);
-console.log("Supabase Key length:", process.env.SUPABASE_SERVICE_KEY?.length);
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -115,8 +113,11 @@ app.use('/api/import', importRoutes);
 // Protected dashboard routes
 app.use('/api/dashboard', dashboardRoutes);
 
+// Protected metrics routes
+app.use('/api/metrics', metricsRoutes);
+
 app.get('/api', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'MSME Inventory Lite API',
     version: '1.0.0',
     endpoints: {
@@ -126,7 +127,9 @@ app.get('/api', (req, res) => {
         protected: '/api/products'
       },
       auth: '/api/auth',
-      import: '/api/import'
+      import: '/api/import',
+      dashboard: '/api/dashboard',
+      metrics: '/api/metrics'
     }
   });
 });
@@ -142,11 +145,14 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
     });
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Backend server running at http://localhost:${port}`);
-  console.log(`📊 Health check: http://localhost:${port}/api/health`);
-  console.log(`📦 Public products: http://localhost:${port}/api/products/public`);
-  console.log(`🔐 Auth routes: http://localhost:${port}/api/auth`);
-  console.log(`🔒 Protected products: http://localhost:${port}/api/products`);
-  console.log(`📥 CSV Import: http://localhost:${port}/api/import/csv`);
+const server = app.listen(port, () => {
+  console.log(`Server listening on ${port}`);
 });
+
+const shutdown = () => {
+  console.log('Shutting down gracefully...');
+  server.close(() => process.exit(0));
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

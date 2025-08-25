@@ -15,5 +15,8 @@
   "workspaces": [
     "frontend-nextjs",
     "backend-node"
-  ]
+  ],
+  "dependencies": {
+    "axios": "^1.11.0"
+  }
 }

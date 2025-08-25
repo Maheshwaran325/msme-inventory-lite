@@ -26,6 +26,7 @@ interface ConflictResolutionModalProps {
   };
   clientData: Product;
   onResolve: (resolution: 'keep-mine' | 'accept-remote' | 'merge-manual', mergedData?: Partial<Product>) => void;
+  onPermissionResolve?: (keepOtherChanges: boolean) => void;
   isPermissionError?: boolean;
 }
 
@@ -35,6 +36,7 @@ export function ConflictResolutionModal({
   conflictData, 
   clientData, 
   onResolve,
+  onPermissionResolve,
   isPermissionError = false
 }: ConflictResolutionModalProps) {
   const [mergedData, setMergedData] = useState<Partial<Product>>({
@@ -55,6 +57,14 @@ export function ConflictResolutionModal({
 
   const handleMergeManual = () => {
     onResolve('merge-manual', mergedData);
+  };
+
+  const handleKeepOtherChanges = () => {
+    if (isPermissionError && onPermissionResolve) {
+      onPermissionResolve(true);
+    } else {
+      onResolve('keep-mine');
+    }
   };
 
   const handleInputChange = (field: keyof Product, value: string | number) => {
@@ -153,14 +163,9 @@ export function ConflictResolutionModal({
 
         <div className="flex justify-end space-x-3">
           {isPermissionError ? (
-            <>
-              <Button variant="secondary" onClick={handleAcceptRemote}>
-                Remove Price Change
-              </Button>
-              <Button onClick={handleKeepMine}>
-                Keep Other Changes
-              </Button>
-            </>
+            <Button onClick={handleKeepOtherChanges}>
+              Keep Other Changes
+            </Button>
           ) : (
             <>
               <Button variant="secondary" onClick={handleKeepMine}>

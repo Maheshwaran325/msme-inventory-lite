@@ -6,6 +6,7 @@ import { useAuth } from '../lib/authContext';
 import { Button } from './ui/Button';
 import { getSessionToken } from '../lib/supabaseClient';
 import { ConflictResolutionModal } from './ConflictResolutionModal';
+import { enqueueEdit, isSimulatedOffline } from '../lib/offlineQueue';
 
 interface Product {
   id: string;
@@ -71,6 +72,11 @@ export function ProductForm({ product, onFinished }: ProductFormProps) {
     console.log('URL:', url);
     console.log('Method:', method);
     
+    if (isSimulatedOffline()) {
+      await enqueueEdit({ url, method: method as 'POST' | 'PUT', body: productData });
+      return { success: true };
+    }
+
     const response = await fetch(url, {
       method,
       headers: {
@@ -150,6 +156,12 @@ export function ProductForm({ product, onFinished }: ProductFormProps) {
       }
     } catch (err) {
       console.error('Product submission error:', err);
+      // Queue on network failure for offline tolerance
+      try {
+        await enqueueEdit({ url, method: method as 'POST' | 'PUT', body: productData });
+        onFinished();
+        return;
+      } catch {}
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
@@ -166,68 +178,44 @@ export function ProductForm({ product, onFinished }: ProductFormProps) {
       let productData: Product;
       let newVersion: number;
 
-      if (isPermissionError) {
-        // Handle permission error resolution
-        switch (resolution) {
-          case 'keep-mine':
-            // Keep all changes except unit_price (revert to original)
-            productData = { 
-              ...clientData,
-              unit_price: product.unit_price // Revert to original price
-            } as Product;
-            newVersion = version + 1;
-            break;
-          case 'accept-remote':
-            // Remove unit_price change, keep other changes
-            productData = { 
-              ...clientData,
-              unit_price: product.unit_price // Revert to original price
-            } as Product;
-            newVersion = version + 1;
-            break;
-          default:
-            throw new Error('Invalid resolution for permission error');
-        }
-      } else {
-        // Handle regular conflict resolution
-        switch (resolution) {
-          case 'keep-mine':
-            // Use client data but with updated version
-            productData = { ...clientData } as Product;
-            newVersion = conflictData.actual_version! + 1;
-            break;
-          case 'accept-remote':
-            // Use current data and update form
-            productData = { ...clientData } as Product;
-            newVersion = conflictData.actual_version!;
-            // Update form fields to reflect current data (we'll need to fetch it)
-            const token = await getSessionToken();
-            const response = await fetch(`/api/products/${product.id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-              },
-            });
-            if (response.ok) {
-              const data = await response.json();
-              const currentProduct = data.data;
-              setName(currentProduct.name);
-              setSku(currentProduct.sku);
-              setCategory(currentProduct.category);
-              setQuantity(currentProduct.quantity);
-              setUnitPrice(currentProduct.unit_price);
-              setVersion(currentProduct.version);
-            }
-            setShowConflictModal(false);
-            setConflictData(null);
-            setClientData(null);
-            setIsPermissionError(false);
-            return;
-          case 'merge-manual':
-            // Use merged data
-            productData = { ...mergedData, version: conflictData.actual_version! + 1 } as Product;
-            newVersion = conflictData.actual_version! + 1;
-            break;
-        }
+      // Handle regular conflict resolution (permission errors are handled separately)
+      switch (resolution) {
+        case 'keep-mine':
+          // Use client data but with updated version
+          productData = { ...clientData } as Product;
+          newVersion = conflictData.actual_version! + 1;
+          break;
+        case 'accept-remote':
+          // Use current data and update form
+          productData = { ...clientData } as Product;
+          newVersion = conflictData.actual_version!;
+          // Update form fields to reflect current data (we'll need to fetch it)
+          const token = await getSessionToken();
+          const response = await fetch(`/api/products/${product.id}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const currentProduct = data.data;
+            setName(currentProduct.name);
+            setSku(currentProduct.sku);
+            setCategory(currentProduct.category);
+            setQuantity(currentProduct.quantity);
+            setUnitPrice(currentProduct.unit_price);
+            setVersion(currentProduct.version);
+          }
+          setShowConflictModal(false);
+          setConflictData(null);
+          setClientData(null);
+          setIsPermissionError(false);
+          return;
+        case 'merge-manual':
+          // Use merged data
+          productData = { ...mergedData, version: conflictData.actual_version! + 1 } as Product;
+          newVersion = conflictData.actual_version! + 1;
+          break;
       }
 
       productData.version = newVersion;
@@ -247,6 +235,28 @@ export function ProductForm({ product, onFinished }: ProductFormProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePermissionResolution = async (keepOtherChanges: boolean) => {
+    if (!product || !clientData) return;
+
+    // For permission errors, we just update the form with the changes except unit_price
+    // No need to submit again since we're just keeping other changes
+    if (keepOtherChanges) {
+      // Update form with client data except unit_price (keep original)
+      setName(clientData.name);
+      setSku(clientData.sku);
+      setCategory(clientData.category);
+      setQuantity(clientData.quantity);
+      // Keep the original unit_price, don't change it
+      setUnitPrice(product.unit_price);
+    }
+
+    // Close the modal and reset state
+    setShowConflictModal(false);
+    setConflictData(null);
+    setClientData(null);
+    setIsPermissionError(false);
   };
 
   return (
@@ -299,6 +309,7 @@ export function ProductForm({ product, onFinished }: ProductFormProps) {
           conflictData={conflictData}
           clientData={clientData}
           onResolve={handleConflictResolution}
+          onPermissionResolve={handlePermissionResolution}
           isPermissionError={isPermissionError}
         />
       )}

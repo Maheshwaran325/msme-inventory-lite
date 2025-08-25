@@ -9,6 +9,8 @@ import { ProductForm } from '../../components/ProductForm';
 import { getSessionToken } from '../../lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { OfflineControls } from '../../components/OfflineControls';
+import { enqueueEdit, isSimulatedOffline } from '../../lib/offlineQueue';
 
 interface Product {
   id: string;
@@ -130,22 +132,26 @@ export default function ProductsPage() {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         const token = await getSessionToken();
+        if (isSimulatedOffline()) {
+          await enqueueEdit({ url: `/api/products/${id}`, method: 'DELETE', body: null });
+          alert('Delete queued (offline). It will sync when back online.');
+          return;
+        }
         const response = await fetch(`/api/products/${id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
-        if (response.ok) {
-          fetchProducts(); // Refresh the list
-        } else {
+        if (response.ok) fetchProducts(); else {
           const data = await response.json();
           alert(data.error?.message || 'Failed to delete product');
         }
       } catch (error) {
         console.error('Error deleting product:', error);
-        alert('An error occurred while deleting the product');
+        // Queue if network failed
+        await enqueueEdit({ url: `/api/products/${id}`, method: 'DELETE', body: null });
+        alert('Network error — delete queued for retry.');
       }
     }
   };
@@ -226,6 +232,7 @@ export default function ProductsPage() {
               <Button onClick={handleAddProduct}>Add Product</Button>
             )}
           </div>
+          <div className="mb-4"><OfflineControls /></div>
 
           {/* Search + Category Filters */}
           <div className="bg-white border rounded p-4 mb-6">
