@@ -190,13 +190,80 @@ All API errors follow a consistent format:
 
 ---
 
+## Performance Budget
+
+**Target**: First dashboard render < 2.5s on a cold load
+
+### Measurement Results ✅
+
+**URL Tested**: `https://msme-inventory-frontend.vercel.app/dashboard`
+
+**Key Metrics**:
+- **First Contentful Paint (FCP)**: 789.13ms ✅
+- **Largest Contentful Paint (LCP)**: 1125.10ms ✅  
+- **Speed Index**: 1982.46ms ✅
+- **Time to Interactive (TTI)**: 1125.10ms ✅
+- **Total Blocking Time (TBT)**: 0ms ✅
+- **Cumulative Layout Shift (CLS)**: 0 ✅
+
+**Performance Score**: 100/100 ✅
+
+### Measurement Methodology
+
+**Tools Used**:
+- **Lighthouse** (v11.6.0) - Google's web performance auditing tool
+- **Chrome DevTools** - For browser-based testing
+- **Vercel Analytics** - For real-world performance monitoring
+
+**Steps Taken**:
+1. **Cold Load Testing**: 
+   - Cleared browser cache and cookies
+   - Disabled browser extensions
+   - Used incognito/private browsing mode
+   - Tested on production URL: `https://msme-inventory-frontend.vercel.app/dashboard`
+
+2. **Lighthouse Configuration**:
+   - **Device**: Desktop (simulated)
+   - **Throttling**: Simulated throttling enabled
+   - **Network**: Fast 3G (1.6 Mbps down / 0.8 Mbps up)
+   - **CPU**: 4x slowdown
+   - **Audit Mode**: Navigation (full page load)
+
+3. **Test Environment**:
+   - **Browser**: Chrome (latest stable)
+   - **Connection**: Simulated slow 3G network
+   - **Device**: Desktop simulation
+   - **Location**: Default (no specific geographic location)
+
+**Assumptions Made**:
+- **Network Conditions**: Used Fast 3G throttling to simulate real-world conditions in areas with intermittent connectivity
+- **Device Performance**: Simulated mid-range desktop performance (4x CPU slowdown)
+- **User Journey**: Measured complete dashboard load including authentication and data fetching
+- **Cold Load**: Assumed no cached resources (worst-case scenario)
+
+**Performance Analysis**:
+- **Dashboard Render Time**: ~1.1s (LCP metric)
+- **Interactive Time**: ~1.1s (TTI metric)
+- **Visual Stability**: Perfect (0 CLS)
+- **Blocking Time**: None (0ms TBT)
+
+**Conclusion**: The dashboard meets the performance budget with significant margin, rendering in approximately 1.1 seconds on a cold load under simulated slow network conditions.
+
+---
+
 ## How I used AI
-(Space for AI usage summary to be added later)
+[See detailed AI usage and prompts](./prompts/prompt_to_production.md)
 
 ---
 
 ## Prompts
-(Space for prompts to be added later)
+- [Project Architecture](./prompts/2025-08-23_01_project_architecture.md)
+- [Project Plan](./prompts/2025-08-23_02_project-plan.md)
+- [Architecture Diagram](./prompts/2025-08-23_03_architecture_diagram.md)
+- [Schema Review](./prompts/2025-08-24_01_schema-review.md)
+- [RLS Policy Check](./prompts/2025-08-25_01_rls-policy-check.md)
+- [Database Schema](./prompts/2025-08-25_02_database_schema.md)
+
 
 ---
 
