@@ -264,3 +264,40 @@ export const getKPIs = async (req: Request, res: Response) => {
         sendErrorResponse(res, appError);
     }
 };
+
+export const getStockValueByCategory = async (req: Request, res: Response) => {
+    const startTime = Date.now();
+
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('category, quantity, unit_price');
+
+        if (error) throw mapSupabaseError(error, 'products');
+
+        const totals = new Map<string, number>();
+
+        (data || []).forEach((p: any) => {
+            const category = (p.category || 'Uncategorized') as string;
+            const qty = Number(p.quantity) || 0;
+            const price = parseFloat(p.unit_price as string) || 0;
+            const value = qty * price;
+            totals.set(category, (totals.get(category) || 0) + value);
+        });
+
+        const result = Array.from(totals.entries())
+            .map(([category, stockValue]) => ({ category, stockValue }))
+            .sort((a, b) => b.stockValue - a.stockValue);
+
+        logger.log(logger.createLogEntry('READ', startTime, req, 'SUCCESS'));
+
+        res.json({
+            success: true,
+            data: result,
+        });
+    } catch (error) {
+        const appError = error instanceof Error ? mapSupabaseError(error, 'products') : ErrorTypes.INTERNAL_ERROR();
+        logger.log(logger.createLogEntry('READ', startTime, req, 'ERROR', undefined, appError.code, appError.message));
+        sendErrorResponse(res, appError);
+    }
+};

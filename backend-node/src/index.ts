@@ -8,7 +8,8 @@ import productRoutes from './routes/products';
 import importRoutes from './routes/import';
 import dashboardRoutes from './routes/dashboard';
 import metricsRoutes from './routes/metrics';
-
+import { logger } from './utils/logger';
+import { metricsCollector } from './utils/metrics';
 dotenv.config();
 
 const app = express();
@@ -79,11 +80,16 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Public metrics endpoint for monitoring
+// Public metrics endpoint for monitoring
 app.get('/api/metrics', (req, res) => {
   try {
     const uptime = process.uptime();
     const memoryUsage = process.memoryUsage();
-    
+
+    // Include CRUD metrics from current run
+    const logs = logger.getLogs();
+    const generated = metricsCollector.generateMetrics(logs);
+
     res.status(200).json({
       status: 'ok',
       message: 'MSME Inventory API Metrics',
@@ -103,7 +109,10 @@ app.get('/api/metrics', (req, res) => {
         nodeVersion: process.version,
         platform: process.platform,
         arch: process.arch
-      }
+      },
+      summary: generated.summary,
+      operations: generated.operations,
+      status_breakdown: generated.status_breakdown
     });
   } catch (err) {
     console.error("Metrics endpoint failed:", err);

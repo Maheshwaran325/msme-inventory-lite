@@ -128,6 +128,31 @@ Key features shown:
 | `/api/metrics` | GET | Metrics/logs | none | `{counts, p95_latency}` | - |
 | `/api/health` | GET | Health check | none | `{status: ok}` | - |
 
+### Health & Metrics Endpoints
+
+#### `/api/health` - System Health Check
+**Purpose**: Monitor system health and connectivity between frontend and backend
+
+**Access**: 
+```bash
+# Frontend proxy (recommended)
+curl https://msme-inventory-frontend.vercel.app/api/health
+
+# Direct backend access
+curl http://localhost:3000/api/health
+```
+#### `/api/metrics` - System Metrics
+**Purpose**: Monitor API performance and system resource usage
+
+**Access**:
+```bash
+# Frontend proxy (recommended)
+curl https://msme-inventory-frontend.vercel.app/api/metrics
+
+# Local development
+curl http://localhost:3000/api/metrics
+```
+
 ### Error Handling
 
 All API errors follow a consistent format:
@@ -186,11 +211,6 @@ All API errors follow a consistent format:
 ---
 
 ## Performance Notes
-(Space for performance notes to be added later)
-
----
-
-## Performance Budget
 
 **Target**: First dashboard render < 2.5s on a cold load
 
