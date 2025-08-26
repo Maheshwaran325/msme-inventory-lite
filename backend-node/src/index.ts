@@ -78,6 +78,43 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Public metrics endpoint for monitoring
+app.get('/api/metrics', (req, res) => {
+  try {
+    const uptime = process.uptime();
+    const memoryUsage = process.memoryUsage();
+    
+    res.status(200).json({
+      status: 'ok',
+      message: 'MSME Inventory API Metrics',
+      timestamp: new Date().toISOString(),
+      uptime: {
+        seconds: Math.floor(uptime),
+        formatted: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`
+      },
+      memory: {
+        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+        external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`
+      },
+      process: {
+        pid: process.pid,
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch
+      }
+    });
+  } catch (err) {
+    console.error("Metrics endpoint failed:", err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to generate metrics',
+      error: err instanceof Error ? err.message : JSON.stringify(err)
+    });
+  }
+});
+
 // Public products endpoint (for testing)
 app.get('/api/products/public', async (req, res) => {
   try {
@@ -122,6 +159,7 @@ app.get('/api', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
+      metrics: '/api/metrics',
       products: {
         public: '/api/products/public',
         protected: '/api/products'
@@ -129,7 +167,21 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       import: '/api/import',
       dashboard: '/api/dashboard',
-      metrics: '/api/metrics'
+      protected_metrics: '/api/metrics (authenticated)'
+    }
+  });
+});
+
+// Root endpoint for easy testing
+app.get('/', (req, res) => {
+  res.json({
+    message: 'MSME Inventory Lite API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/health',
+      metrics: '/api/metrics',
+      api_info: '/api'
     }
   });
 });

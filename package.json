@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "install": "npm install --workspaces",
     "dev": "concurrently \"npm run dev --prefix frontend-nextjs\" \"npm run dev --prefix backend-node\""
   },
   "keywords": [],

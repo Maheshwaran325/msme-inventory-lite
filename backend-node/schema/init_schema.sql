@@ -45,15 +45,16 @@ CREATE TABLE products (
   updated_at timestamptz DEFAULT now()
 );
 
--- Automatically update updated_at on row changes
-CREATE FUNCTION set_updated_at()
-RETURNS trigger AS $$
+-- Unified set_updated_at function (used by products & import_logs)
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Trigger for products
 CREATE TRIGGER trigger_set_updated_at
   BEFORE UPDATE ON products
   FOR EACH ROW
@@ -85,7 +86,6 @@ CREATE POLICY "Owners can update products."
   ON products FOR UPDATE TO authenticated
   USING (is_owner(auth.uid()));
 
-
 -- Delete: Only owners can delete products
 CREATE POLICY "Owners can delete products."
   ON products FOR DELETE TO authenticated
@@ -98,3 +98,41 @@ INSERT INTO products (name, sku, category, quantity, unit_price) VALUES
   ('White Bread', 'BREAD-WHITE', 'Bakery', 25, 1.75),
   ('Milk 1L', 'MILK-1L', 'Dairy', 30, 3.25),
   ('Bananas (per kg)', 'BANANA-KG', 'Fruits', 15, 2.99);
+
+-- ============================================================
+-- Import logs support
+
+-- Custom type for tracking status
+CREATE TYPE import_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+
+-- Logs table (MVP, no child table)
+CREATE TABLE import_logs (
+    id bigserial PRIMARY KEY,
+    filename text NOT NULL,
+    file_hash text NOT NULL UNIQUE,              
+    status import_status NOT NULL DEFAULT 'pending',
+    total_rows integer NOT NULL DEFAULT 0,
+    successful_rows integer NOT NULL DEFAULT 0,
+    failed_rows integer NOT NULL DEFAULT 0,
+    results jsonb,                              
+    imported_by uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Trigger for import_logs
+CREATE TRIGGER trigger_set_updated_at
+  BEFORE UPDATE ON import_logs
+  FOR EACH ROW
+  EXECUTE PROCEDURE set_updated_at();
+
+-- RLS
+ALTER TABLE import_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own imports"
+    ON import_logs FOR SELECT TO authenticated
+    USING (imported_by = auth.uid());
+
+CREATE POLICY "Users can create their own imports"
+    ON import_logs FOR INSERT TO authenticated
+    WITH CHECK (imported_by = auth.uid());
