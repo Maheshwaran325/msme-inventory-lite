@@ -1,11 +1,10 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 
 async function handler(req: NextRequest) {
     const { pathname, search } = new URL(req.url);
     const path = pathname.replace('/api', '');
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
-    const url = `${backendBaseUrl}${path}${search}`;
+    const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    const url = `${backendBaseUrl}/api${path}${search}`;
 
     try {
         // Get the request body for non-GET requests

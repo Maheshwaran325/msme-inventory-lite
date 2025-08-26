@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 async function handler(req: NextRequest) {
-    const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
-    const url = `${backendBaseUrl}/dashboard/kpis`;
+    const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    const url = `${backendBaseUrl}/api/dashboard/kpis`;
     
     try {
         const response = await fetch(url, {

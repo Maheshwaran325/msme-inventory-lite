@@ -18,3 +18,6 @@ export const getSessionToken = async () => {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token;
 };
+
+// API base URL for backend communication
+export const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
